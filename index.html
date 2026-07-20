@@ -1,1 +1,322 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Library - Poor Man's Food</title>
+<style>
+:root{--s-black:#000;--s-base:#121212;--s-elev:#1a1a1a;--s-high:#2a2a2a;--s-dim:#a7a7a7;--s-bright:#fff;--s-green:#1db954;--s-green-hover:#1ed760;--p-color:#d35400;}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+body{background-color:var(--s-black);color:var(--s-bright);display:flex;height:100vh;overflow:hidden;}
+.sidebar{width:240px;background-color:var(--s-black);display:flex;flex-direction:column;padding:24px;flex-shrink:0;z-index:10;}
+.sidebar h2{font-size:14px;color:var(--s-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;}
+.nav-link{color:var(--s-dim);text-decoration:none;font-size:14px;font-weight:bold;margin-bottom:16px;display:flex;align-items:center;cursor:pointer;transition:color 0.2s;}
+.nav-link:hover,.nav-link.active{color:var(--s-bright);}
+.divider{height:1px;background-color:#282828;margin:10px 0 20px 0;}
+.main-view{flex:1;background-color:var(--s-base);border-radius:8px;margin:8px 8px 98px 0;display:flex;flex-direction:column;overflow-y:auto;position:relative;}
+.playlist-header{padding:40px 30px;display:flex;align-items:flex-end;background:linear-gradient(transparent 0,rgba(0,0,0,.5) 100%),var(--p-color);}
+.playlist-cover{width:200px;height:200px;background-color:#282828;box-shadow:0 4px 60px rgba(0,0,0,.5);margin-right:24px;border-radius:4px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:80px;}
+.playlist-info p{font-size:14px;font-weight:bold;margin-bottom:8px;}
+.playlist-info h1{font-size:4.5rem;font-weight:900;line-height:1.2;margin-bottom:15px;}
+.playlist-info .description{color:var(--s-dim);font-weight:normal;font-size:14px;}
+.action-bar{padding:24px 30px;background:linear-gradient(rgba(0,0,0,.6) 0,var(--s-base) 100%);display:flex;align-items:center;}
+.big-play-btn{width:56px;height:56px;background-color:var(--s-green);border-radius:50%;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;font-size:24px;padding-left:5px;transition:all 0.2s;flex-shrink:0;}
+.big-play-btn:hover{background-color:var(--s-green-hover);transform:scale(1.05);}
+.action-btn{background-color:transparent;color:var(--s-bright);border:1px solid #535353;border-radius:20px;padding:10px 20px;margin-left:15px;cursor:pointer;font-weight:bold;font-size:15px;transition:all 0.2s;}
+.action-btn:hover{border-color:var(--s-bright);transform:scale(1.02);background-color:rgba(255,255,255,0.1);}
+.transcript-container{margin:0 30px 20px 30px;padding:0 24px 24px 24px;background-color:var(--s-elev);border-radius:8px;display:none;line-height:1.8;font-size:1.15rem;border-left:4px solid var(--p-color);transition:all 0.3s ease;}
+.transcript-container.show{display:block;}
+.transcript-container.fullscreen{position:fixed;top:0;left:0;width:100vw;height:calc(100vh - 90px);z-index:9999;margin:0;border-radius:0;background-color:var(--s-base);border-left:none;border-top:4px solid var(--p-color);padding:2vh 5vw;overflow-y:auto;display:flex;flex-direction:column;justify-content:flex-start;}
+.transcript-container.fullscreen .transcript-header{margin-bottom:1.5vh;padding:2vh 0 1vh 0;border-bottom:1px solid #333;}
+.transcript-container.fullscreen h3{font-size:4.5vh;}
+.transcript-container.fullscreen p{font-size:3vh;line-height:1.5;margin-bottom:1.5vh;}
+.transcript-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding:20px 0 15px 0;border-bottom:1px solid #333;position:sticky;top:0;background-color:var(--s-elev);z-index:10;}
+.transcript-container.fullscreen .transcript-header{background-color:var(--s-base);}
+.transcript-header h3{color:var(--p-color);text-shadow:0 0 8px rgba(211,84,0,0.5);font-size:1.8rem;margin:0;}
+.transcript-container p{margin-bottom:20px;}
+.dict-word{border-bottom:1px dashed var(--s-dim);cursor:pointer;transition:all 0.2s;}
+.dict-word.active{border-bottom:none;font-weight:bold;}
+.neon-en{color:#39ff14;text-shadow:0 0 8px rgba(57,255,20,0.4);}
+.neon-tr{color:#fbff00;text-shadow:0 0 8px rgba(255,255,0,0.4);}
+.track-list-container{padding:0 30px 40px 30px;}
+.track-list-header{display:grid;grid-template-columns:40px 1fr 150px;padding:5px 16px;border-bottom:1px solid #282828;color:var(--s-dim);font-size:13px;letter-spacing:1px;margin-bottom:16px;}
+.track-item{display:grid;grid-template-columns:40px 1fr 150px;align-items:center;padding:10px 16px;border-radius:4px;cursor:pointer;transition:background-color 0.2s;color:var(--s-dim);}
+.track-item:hover{background-color:var(--s-high);color:var(--s-bright);}
+.track-item.playing,.track-item.playing .track-title{color:var(--s-green);}
+.track-number{font-variant-numeric:tabular-nums;font-size:14px;}
+.track-item:hover .track-number{display:none;}
+.track-item:hover::before{content:"▶";width:40px;color:var(--s-bright);font-size:12px;display:block;}
+.track-info{display:flex;flex-direction:column;overflow:hidden;}
+.track-title{color:var(--s-bright);font-size:16px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.track-artist{font-size:13px;}
+.track-album{font-size:14px;}
+.player-bar{position:fixed;bottom:0;left:0;width:100%;height:90px;background-color:var(--s-black);display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-top:1px solid #282828;z-index:10000;}
+.now-playing-section{width:30%;display:flex;align-items:center;overflow:hidden;}
+.now-playing-art{font-size:32px;margin-right:10px;}
+.now-playing-info{display:flex;flex-direction:column;overflow:hidden;margin-left:10px;}
+.np-title{color:var(--s-bright);font-size:14px;margin-bottom:4px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.np-artist{color:var(--s-dim);font-size:12px;}
+.controls-section{width:40%;display:flex;flex-direction:column;align-items:center;}
+.buttons{display:flex;align-items:center;gap:24px;margin-bottom:8px;}
+.control-btn{background:none;border:none;color:var(--s-dim);font-size:18px;cursor:pointer;transition:color 0.2s;}
+.control-btn:hover{color:var(--s-bright);}
+.play-pause-btn{background-color:var(--s-bright);color:var(--s-black);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;padding-left:3px;}
+.play-pause-btn.playing{padding-left:0;}
+.play-pause-btn:hover{transform:scale(1.05);color:var(--s-black);}
+.progress-container{display:flex;align-items:center;width:100%;max-width:600px;gap:8px;font-size:11px;color:var(--s-dim);}
+.progress-bar{flex:1;height:4px;background-color:#535353;border-radius:2px;cursor:pointer;position:relative;}
+.progress-fill{height:100%;background-color:var(--s-bright);border-radius:2px;width:0%;}
+.progress-bar:hover .progress-fill{background-color:var(--s-green);}
+.right-section{width:30%;}
+@media (max-width:768px){
+body{flex-direction:column;}.sidebar{display:none;}.main-view{margin:0;border-radius:0;margin-bottom:120px;}.playlist-header{flex-direction:column;align-items:center;text-align:center;padding:30px 20px;}.playlist-cover{margin-right:0;margin-bottom:20px;width:160px;height:160px;font-size:64px;}.playlist-info h1{font-size:2.5rem;}.action-bar{flex-direction:column;padding:15px 20px;gap:15px;}.action-btn{margin-left:0;width:100%;text-align:center;}.transcript-container{margin:0 15px 20px 15px;padding:0 20px 20px 20px;}.transcript-container.fullscreen{padding:0 15px 20px 15px;}.transcript-header{flex-direction:column;gap:15px;}.track-list-container{padding:0 15px 40px 15px;}.track-list-header{grid-template-columns:40px 1fr;}.track-list-header div:nth-child(3){display:none;}.track-item{grid-template-columns:40px 1fr;}.track-album{display:none;}.player-bar{height:110px;flex-direction:column;justify-content:center;padding:10px 15px;}.now-playing-section{width:100%;justify-content:center;margin-bottom:8px;}.np-title{text-align:center;font-size:15px;}.np-artist{display:none;}.controls-section{width:100%;}.buttons{margin-bottom:8px;gap:35px;}.control-btn{font-size:22px;}.play-pause-btn{width:40px;height:40px;}.right-section{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="sidebar"><a class="nav-link">Home</a><a class="nav-link">Search</a><a class="nav-link">Your Library</a><div class="divider"></div><h2>Playlists</h2><a class="nav-link active">Food Quizzes</a></div>
+<div class="main-view">
+    <div class="playlist-header">
+        <div class="playlist-cover">🍽️</div>
+        <div class="playlist-info"><p>Public Playlist</p><h1>Food History</h1><div class="description">A complete collection of 26 listening lessons exploring the fascinating history of foods that used to be cheap but are now luxury items.</div></div>
+    </div>
+    <div class="action-bar">
+        <button class="big-play-btn" id="h-main-play-btn">▶</button>
+        <button class="action-btn" id="h-transcript-toggle">📖 Show Transcript</button>
+    </div>
+    <div class="transcript-container" id="h-transcript-container">
+        <div class="transcript-header">
+            <h3 id="h-transcript-title">Select a lesson to read</h3>
+            <button class="action-btn" id="h-fullscreen-btn" style="display:none;">⛶ Full Screen</button>
+        </div>
+        <div id="h-transcript-text">Press play on any track to view the transcript here. Click highlighted words for translation.</div>
+    </div>
+    <div class="track-list-container">
+        <div class="track-list-header"><div>#</div><div>Title</div><div>Album</div></div>
+        <div id="track-container"></div>
+    </div>
+</div>
+<div class="player-bar">
+    <div class="now-playing-section">
+        <div class="now-playing-art" id="np-art" style="display:none;">🍽️</div>
+        <div class="now-playing-info">
+            <div class="np-title" id="h-now-playing-title"></div>
+            <div class="np-artist" id="h-now-playing-artist"></div>
+        </div>
+    </div>
+    <div class="controls-section">
+        <div class="buttons"><button class="control-btn" id="prev-btn">⏮</button><button class="control-btn play-pause-btn" id="h-play-pause-btn">▶</button><button class="control-btn" id="next-btn">⏭</button></div>
+        <div class="progress-container"><span id="current-time">0:00</span><div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div><span id="duration">0:00</span></div>
+    </div>
+    <div class="right-section"></div>
+</div>
+<audio id="audio-player"></audio>
+
+<script>
+const baseUrl = "https://raw.githubusercontent.com/dogierez/poor-food-now-luxury-26-spotify/main/";
+
+const tracks = [
+{title:"1. Lobster",src:baseUrl + "1.m4a",text:`Lobster is a very expensive food today. But in the past, people did not like it. In the 1600s, there were too many lobsters in America. After big storms, huge piles washed onto the beaches. People called them ocean trash.<br><br>Farmers used to put them on their fields to help plants grow. Servants and prisoners used to eat them because they were very cheap. People thought it was a punishment to eat lobster! Everything changed in the 1800s. People built the railroad. Trains traveled from the ocean to cities far away.<br><br>Chefs on the trains cooked fresh lobsters for the rich passengers. These passengers tasted lobster for the first time. They thought it was delicious. Because it was new, everyone wanted it.<br><br>Soon, restaurants started to serve lobster on fancy white tables. They charged a lot of money for it. The sea insect became a rich person's dinner. Now, people will save their money to buy lobster for special days. They will not remember its history as prison food!`,dictionary:{"expensive":"pahalı","storms":"fırtınalar","piles":"yığınlar","trash":"çöp","servants":"hizmetçiler","prisoners":"mahkumlar","punishment":"ceza","railroad":"demiryolu","passengers":"yolcular","delicious":"lezzetli","charged":"ücretlendirdi","insect":"böcek"}},
+{title:"2. Oxtail",src:baseUrl + "2.m4a",text:`Oxtail is exactly what it sounds like: the real tail of a cow. It is mostly bone with a little bit of meat. For hundreds of years, nobody wanted to pay for it. From the 17th century to the 20th century, oxtail was a food for poor people.<br><br>Because it was so tough, it needed a very long time to cook. People used to boil it for three hours. They made thick, rich soups. It cost almost nothing, and it easily filled a big family pot. Families used to eat this because they did not have much money.<br><br>Then, something interesting happened. When you cook oxtail slowly, the fat melts. The liquid becomes very tasty. In the 2000s, famous chefs noticed this. They realized that this cheap meat tasted amazing. They put it on their fancy menus. Food writers talked about it.<br><br>Suddenly, everyone wanted to eat oxtail. But a cow only has one tail! Because many people want it now, the price is high. It will stay expensive forever.`,dictionary:{"tough":"sert","boil":"kaynatmak","thick":"koyu/kalın","slowly":"yavaşça","melts":"erir","liquid":"sıvı","tasty":"lezzetli","noticed":"fark etti","realized":"farkına vardı","forever":"sonsuza dek"}},
+{title:"3. Caviar",src:baseUrl + "3.m4a",text:`Caviar is the salted eggs of a sturgeon fish. Today, people think of it as a very rich person's food. But a long time ago in America, it was free! In the 19th century, rivers in North America were full of sturgeon fish. There were so many fish eggs that the price was very low.<br><br>American bars used to put bowls of salty caviar on their tables for free. The owners did this as a trick. The salty fish eggs made people thirsty. When people felt thirsty, they bought more drinks! However, people fished too much. They also polluted the water. Soon, the fish disappeared. The supply of caviar stopped.<br><br>Then, American sellers remembered something. Russian kings used to eat caviar as a royal meal. The sellers told people that caviar was a rare, royal food. They started to serve it with special spoons. Because it was rare, the price went up. Today, you will pay a lot of money for a tiny spoon of caviar.`,dictionary:{"salted":"tuzlanmış","sturgeon":"mersin balığı","bowls":"kaseler","trick":"hile","thirsty":"susamış","polluted":"kirletti","disappeared":"yok oldu","supply":"tedarik","royal":"kraliyet","rare":"nadir"}},
+{title:"4. Pork Belly",src:baseUrl + "4.m4a",text:`Pork belly is the fat meat from the bottom of a pig. If you add salt and smoke to it, it becomes bacon. For a very long time, poor workers used to eat pork belly. In the past, rich people only bought the lean meat. Working families bought the fatty parts because they were very cheap.<br><br>They used to hide the pork belly inside sausages or boil it for many hours. Nobody saw it as a special meal. Then, in the 1990s, things changed. A new group of chefs started a movement. They wanted to use every single part of the animal.<br><br>Chefs learned how to cook pork belly perfectly. They cooked it very slowly until the fat became soft. Then, they cooked it quickly at a high heat to make the skin crispy. The result was beautiful and delicious. They put it in the center of the plate. Now, restaurants will charge forty dollars for a piece of pork belly! It is a true luxury.`,dictionary:{"smoke":"tütsü/duman","lean":"yağsız","hide":"saklamak","movement":"hareket","perfectly":"kusursuzca","heat":"ısı","crispy":"çıtır","luxury":"lüks"}},
+{title:"5. Oysters",src:baseUrl + "5.m4a",text:`In the past, New York City had millions of oysters. Before the late 1800s, the ocean around the city was full of them. They were so common that people sold them on the streets in cheap buckets. Anyone with a few coins used to buy them. Poor families put them in pies because meat was too expensive.<br><br>People even kept the empty oyster shells. Builders used to crush the shells to make roads and build houses. But then, the city grew bigger and dirtier. The ocean filled with pollution. People also ate too many oysters, so they almost disappeared.<br><br>For many years, it was dangerous to eat a New York oyster because it made people sick. In the early 2000s, clean oysters became popular again. But this time, they were rare. Restaurants decided to treat oysters like fine wine. Now, you will pay several dollars for just one single oyster. People will take pictures of them at expensive parties. They forgot their history as cheap street food!`,dictionary:{"common":"yaygın","buckets":"kovalar","coins":"bozuk paralar","crush":"ezmek","pollution":"kirlilik","sick":"hasta","rare":"nadir","treat":"muamele etmek"}},
+{title:"6. Short Ribs",src:baseUrl + "6.m4a",text:`Short ribs come from the lower chest of a cow. This meat is very tough. It has a lot of fat, heavy bones, and strong tissue. You cannot just cook it quickly on a fire. If you try, it will be too hard to chew! In the 1800s, rich families did not want this tough meat. So, it was very cheap.<br><br>Poor families used to buy short ribs. They cooked the meat in water on a low fire for many hours. After a long time, the meat finally became soft. Poor mothers used to put this meat into dinners to feed their hungry children.<br><br>In the late 1990s, fancy restaurants discovered short ribs. Chefs realized that slowly cooked short ribs tasted amazing. The meat easily fell off the bone. The chefs served it with smooth potatoes and rich sauces. It looked like a very expensive meal. Today, you will pay a lot of money for short ribs in a restaurant. You pay for the chef's hard work!`,dictionary:{"chest":"göğüs","tough":"sert","tissue":"doku","chew":"çiğnemek","hungry":"aç","discovered":"keşfetti","realized":"fark etti","smooth":"pürüzsüz"}},
+{title:"7. Escargot",src:baseUrl + "7.m4a",text:`Escargot is a famous French dish. It means cooked snails. Today, you will find escargot on the menus of very expensive restaurants. But the real history of this food is very simple: snails were completely free! Hundreds of years ago in France, poor farmers used to catch snails with their own hands. They picked them from gardens and roads. No one else wanted them.<br><br>During bad times, people did not have enough food. They used to eat snails because they needed meat to survive. The snails cost nothing at all. To make the snails taste good, farmers added cheap garlic, herbs, and butter.<br><br>Later, big French restaurants took this simple farmer food and made it fancy. They created tiny forks and special plates just for eating them. These strange tools made the meal look very special. Because it looked special, restaurants charged a high price. Now, when people order escargot, they want to show that they are rich. They pay for food that farmers used to get for free!`,dictionary:{"snails":"salyangozlar","survive":"hayatta kalmak","garlic":"sarımsak","herbs":"otlar","fancy":"lüks","forks":"çatallar","tools":"araçlar","charged":"fiyat biçti"}},
+{title:"8. Bone Marrow",src:baseUrl + "8.m4a",text:`Bone marrow is the soft, fatty middle part of a large animal bone. One hundred years ago, you could walk into a meat shop and get bones for free. Butchers thought bones were just trash. After they cut off the meat, they threw the bones away. Poor families used to take these cheap bones home.<br><br>They boiled them in big pots of water. The marrow melted and made delicious soups. People used to do this because they did not want to waste any part of the animal. Nobody thought of bones as a real meal.<br><br>This completely changed in the year 1994. A British chef named Fergus Henderson opened a new restaurant in London. He decided to roast large cow bones in a hot oven. The heat made the marrow soft like warm butter. He served it with toast and a green salad. It looked wild and exciting on the plate. Very quickly, famous restaurants everywhere copied him. Today, you will pay twenty dollars for roasted bone marrow!`,dictionary:{"marrow":"ilik","trash":"çöp","butchers":"kasaplar","threw":"attı","boiled":"kaynattı","waste":"israf etmek","roast":"fırında kızartmak","oven":"fırın","copied":"kopyaladı"}},
+{title:"9. Sushi",src:baseUrl + "9.m4a",text:`When we think of sushi today, we often imagine an expensive dinner. In some famous restaurants, a chef chooses the fish for you. You sit quietly, follow special rules, and eat very rare fish. You will pay hundreds of dollars for this dinner. But the original story of sushi is completely different.<br><br>A long time ago, sushi was just a trick to keep fish fresh. People packed fish in wet rice and left it for months. They ate the fish and threw the rice away. By the 17th century in Tokyo, sushi became a cheap street food.<br><br>Men stood on the street and made sushi in seconds. They pushed a piece of raw fish onto a ball of sour rice. Busy workers used to buy it and eat it fast. They ate it fast because they had to go back to work. It was the oldest kind of fast food! Fancy chefs turned this fast street food into a beautiful, expensive art for rich people.`,dictionary:{"imagine":"hayal etmek","rules":"kurallar","original":"orijinal","trick":"hile","fresh":"taze","packed":"paketledi","raw":"çiğ","sour":"ekşi"}},
+{title:"10. Foie Gras",src:baseUrl + "10.m4a",text:`Foie gras is the fat liver of a duck or a goose. Today, it is one of the most expensive foods in the world. Many places even ban it because of how farmers feed the birds. But this fancy food did not start in the kitchens of rich kings. It started with ordinary people who wanted to use everything.<br><br>Thousands of years ago, ancient Egyptians used to feed their geese extra food. Later, in Europe, Jewish families raised geese for their rich fat. They used the goose fat to cook their meals because they did not use butter. The large, fatty liver was just an extra part of the bird.<br><br>Ordinary families used to cook and eat it to save money. In the 18th century, famous French chefs tasted this amazing liver. They decided to take this simple farmer food and serve it to rich people. They cooked it with sweet fruit jams. Now, people will pay a huge amount of money for a tiny piece of foie gras.`,dictionary:{"liver":"karaciğer","ban":"yasaklamak","ordinary":"sıradan","ancient":"antik","raised":"yetiştirdi","extra":"fazladan","jams":"reçeller","huge":"devasa","amount":"miktar"}},
+{title:"11. Chicken Wings",src:baseUrl + "11.m4a",text:`Chicken wings are a very popular and expensive food today. But a long time ago, people did not want to eat them at all. Butchers thought chicken wings were just trash. They cut the wings off the birds and threw them away. The wings had very little meat and too many bones. Nobody wanted to buy them.<br><br>Poor families did not have enough money to buy good cuts of meat. So, they used to go to the local butchers and collect the cheap chicken wings. They put the small wings into big pots of boiling water with vegetables. The bones gave a delicious chicken flavor to their cheap meals. They used to eat this warm soup to survive the cold winters.<br><br>Then, some clever cooks discovered something amazing. They realized that if you fry the wings in hot oil and add a spicy sauce, they taste wonderful! Suddenly, everybody loved the taste. Today, chicken wings are a luxury food. People will pay a lot of money to eat them.`,dictionary:{"trash":"çöp","boiling":"kaynayan","vegetables":"sebzeler","flavor":"tat/lezzet","survive":"hayatta kalmak","clever":"zeki","fry":"kızartmak","spicy":"baharatlı","luxury":"lüks"}},
+{title:"12. Frog Legs",src:baseUrl + "12.m4a",text:`Many years ago in France, King Louis the Sixteenth lived a very rich life. He ate the best meals in his huge palace. But outside the palace, life was very hard. There was no meat left for the common people. The poor peasants were very hungry.<br><br>Because they needed food, the peasants discovered something new. They used to go to the lakes and rivers to catch wet frogs. They cooked the frogs over simple fires to feed their families and survive. Soon, King Louis and his royal chefs heard a story about this new food.<br><br>The King was very curious. He ordered his men to collect frogs from the rivers and bring them to the palace. His chefs cooked the frogs with fancy sauces, rich butter, and green herbs. King Louis tasted the frogs and he liked the flavor very much! Because the King loved it, the dish became famous. Soon, all the rich aristocrats wanted to eat it too. The simple river frog became a luxury meal.`,dictionary:{"palace":"saray","peasants":"köylüler","survive":"hayatta kalmak","curious":"meraklı","collected":"topladı","flavor":"lezzet/tat","aristocrats":"aristokratlar"}},
+{title:"13. Blutwurst (Blood Sausage)",src:baseUrl + "13.m4a",text:`Blood sausage is a popular food in Germany, Ireland, and many other countries. Today, chefs serve it in expensive restaurants. But in the past, it was a food for very poor farmers. When farmers killed an animal for meat, they did not want to waste anything. Meat was very expensive, and they needed every part of the animal to survive the cold winter.<br><br>They used to collect the dark blood of the animal in a bowl. They mixed the blood with fat, cheap grains, and strong spices. Then, they cooked it over a fire. It looked very strange, but it gave them a lot of energy. For hundreds of years, rich people refused to eat it. They thought it was dirty food.<br><br>But today, people think differently. Famous chefs cook blood sausage with fresh apples and sweet onions. Now, people will pay a high price for this old farmer food.`,dictionary:{"waste":"israf etmek","survive":"hayatta kalmak","grains":"tahıllar","spices":"baharatlar","refused":"reddetti","differently":"farklı şekilde"}},
+{title:"14. Pastırma (Cured Beef)",src:baseUrl + "14.m4a",text:`Pastırma is a delicious, salty meat. Today, you will find it in fancy Turkish breakfasts and expensive sandwiches. But its story started a very long time ago with tough nomadic riders in Central Asia. These riders traveled long distances on their horses. They did not have refrigerators to keep their food fresh. They needed a way to save meat for long journeys.<br><br>The riders used to cut the beef into thick slices. They rubbed a lot of salt and strong garlic on the meat. Then, they put the salty meat inside special bags. They hung these bags on the sides of their horses. When they rode their horses, their heavy legs pressed against the bags.<br><br>The pressure and the salt slowly cooked the meat. It lasted for many months without going bad! Later, the Ottoman palace chefs loved this spicy meat. They turned it into a luxury food. Today, pastırma is a very expensive delicacy.`,dictionary:{"nomadic":"göçebe","riders":"biniciler","distances":"mesafeler","journeys":"yolculuklar","slices":"dilimler","rubbed":"ovaladı","pressure":"basınç","delicacy":"leziz yemek"}},
+{title:"15. Bouillabaisse (Fish Soup)",src:baseUrl + "15.m4a",text:`Bouillabaisse is a famous French fish soup. If you visit a restaurant in southern France today, you will pay a lot of money for one bowl. The chef will serve it with fresh bread and a fancy sauce. But a long time ago, it was the cheapest food in the city of Marseille.<br><br>Fishermen used to go out to the sea in small boats. They caught many beautiful fish to sell at the market. But sometimes, they caught ugly fish with too many bones. Nobody wanted to buy these bony fish. The fishermen did not want to throw them away. So, they used to take the ugly fish home.<br><br>They boiled them in a big pot with sea water, cheap tomatoes, and old onions. It was a simple soup for poor families. Then, rich tourists visited Marseille and tasted the soup. They loved it! Soon, chefs added expensive spices and rare seafood. The poor fisherman's soup became a rich person's dinner.`,dictionary:{"southern":"güney","fishermen":"balıkçılar","ugly":"çirkin","bony":"kılçıklı","boiled":"kaynattı","rare":"nadir","seafood":"deniz ürünleri"}},
+{title:"16. Fondue (Melted Cheese)",src:baseUrl + "16.m4a",text:`Fondue is a famous Swiss dish. A family sits around a warm pot of melted cheese and dips bread into it. Today, people eat fondue on expensive ski holidays in the snowy mountains. But it started as a meal for poor Swiss farmers. In the winter, the villages in the Alps got very cold.<br><br>The snow blocked the roads. The farmers could not buy fresh food. They only had hard, old cheese and dry, hard bread in their houses. The bread was so hard that they broke their teeth! To fix this problem, they used to melt the old cheese in a big pot over the fire.<br><br>They dipped the old bread into the hot cheese to make it soft. It was a very cheap meal to survive the winter. Later, in the 1930s, Swiss cheese makers wanted to sell more cheese. They told everyone that fondue was a fancy national dish. Now, it is a very expensive luxury meal!`,dictionary:{"melted":"erimiş","dips":"batırır","blocked":"kapattı","hard":"sert","survive":"hayatta kalmak","national":"ulusal","luxury":"lüks"}},
+{title:"17. Pizza",src:baseUrl + "17.m4a",text:`Pizza is the most famous food in the world today. But a long time ago, rich people hated it. In the 1800s, Naples was a very poor city in Italy. The street workers did not have much money or time. They needed food that was cheap and fast.<br><br>Bakers used to make flat, round bread and put cheap tomatoes on top. Sometimes they added a little bit of old cheese or garlic. The poor workers used to buy a slice and eat it on the street. Rich Italians thought it was dirty peasant food. They refused to touch it.<br><br>Everything changed in the year 1889. Queen Margherita of Italy visited Naples. She felt tired of fancy royal food. She wanted to taste the poor people's bread. A baker made her a special pizza with red tomatoes, white cheese, and green leaves. She loved it! Because the Queen ate it, everyone wanted it. Now, people will pay high prices for gourmet pizza.`,dictionary:{"hated":"nefret etti","bakers":"fırıncılar","flat":"düz","slice":"dilim","peasant":"köylü","refused":"reddetti","tired":"yorgun","gourmet":"gurme"}},
+{title:"18. Fajitas",src:baseUrl + "18.m4a",text:`When you order fajitas in a restaurant today, the waiter brings a hot pan of delicious meat. You will pay a good price for this famous Mexican-American meal. But the story of the fajita started with poor cowboys in Texas. These cowboys worked very hard on big cattle farms in the 1930s.<br><br>The farm owners kept the best and most expensive cuts of beef to sell. They gave the cheap, tough meat to the cowboys as part of their pay. This meat came from the bottom of the cow. It was very tough and hard to chew. The clever cowboys used to cut the meat into very thin strips.<br><br>They mixed the strips with lime juice and strong spices to make it soft. Then, they cooked it quickly over a hot fire and ate it inside flat bread. For many years, only poor workers knew about it. In the 1980s, fancy restaurants discovered it. Now, everyone loves the famous cowboy meal.`,dictionary:{"waiter":"garson","pan":"tava","cattle":"sığır","tough":"sert","chew":"çiğnemek","clever":"zeki","strips":"şeritler","lime":"misket limonu"}},
+{title:"19. Quinoa",src:baseUrl + "19.m4a",text:`Quinoa is a very healthy grain. Today, you will find it in expensive salads at fancy health food cafes. People call it a "superfood." But for thousands of years, it was just the basic food of poor farmers in the Andes Mountains of South America. The weather in the high mountains was very cold and dry.<br><br>Most plants died in the cold, but quinoa grew perfectly. The ancient Inca people used to eat it every single day to stay strong. When the Spanish army arrived in South America, they hated the quinoa. They thought it was a useless food for poor peasants. They forced the farmers to grow wheat instead.<br><br>For hundreds of years, the rest of the world ignored quinoa. Then, in the 2000s, scientists discovered that it was very good for the human body. Suddenly, healthy eaters everywhere wanted it. Because the demand grew so fast, this cheap peasant food became very expensive.`,dictionary:{"healthy":"sağlıklı","grain":"tahıl","ancient":"antik","useless":"işe yaramaz","forced":"zorladı","wheat":"buğday","ignored":"görmezden geldi","scientists":"bilim insanları","demand":"talep"}},
+{title:"20. Ramen Noodles",src:baseUrl + "20.m4a",text:`Ramen is a bowl of hot soup, noodles, and meat. Today, there are famous ramen restaurants all over the world. People will wait in a long line to buy a bowl. But in the beginning, ramen was a cheap food for poor students and workers in Japan.<br><br>After World War Two, Japan did not have a lot of food. People were very hungry. Small street carts used to sell big bowls of hot salty soup with wheat noodles. The noodles cost almost nothing. Poor workers used to eat the soup fast so they could return to their jobs quickly.<br><br>In 1958, a man invented cheap instant noodles in a plastic cup. It became the food of poor college students everywhere. But in the 2000s, chefs decided to change it. They cooked the meat for many hours and made rich, beautiful soups. They turned the cheap street food into an art. Now, you will pay twenty dollars for gourmet ramen!`,dictionary:{"carts":"arabalar","instant":"hazır","college":"üniversite","gourmet":"gurme"}},
+{title:"21. Ceviche",src:baseUrl + "21.m4a",text:`Ceviche is a popular seafood dish in South America. The chef mixes raw fish with sour lemon or lime juice. The sour juice slowly cooks the raw fish without any fire. Today, you will eat it in luxury restaurants by the ocean. But hundreds of years ago, it was a fast meal for poor fishermen in Peru.<br><br>The fishermen used to spend all day on their boats under the hot sun. They did not have stoves or fires on their small boats to cook their food. When they felt hungry, they took a fresh fish directly from the water. They cut the raw fish into small pieces.<br><br>They used to squeeze fresh sour fruit juice over the fish and eat it right there on the boat. It was a cheap and easy way to eat at sea. Later, rich people in the big cities discovered this trick. Chefs added expensive spices and served it on fancy plates.`,dictionary:{"raw":"çiğ","sour":"ekşi","stoves":"ocaklar","directly":"doğrudan","squeeze":"sıkmak","trick":"hile","rare":"nadir"}},
+{title:"22. Gnocchi",src:baseUrl + "22.m4a",text:`Gnocchi is a delicious Italian food. They look like small, soft pillows. Today, Italian restaurants serve gnocchi with rich meat sauces and expensive cheese. But they started as a trick to save money. Hundreds of years ago, poor Italian farmers did not have enough money to buy wheat flour.<br><br>Flour was very expensive, but the farmers had very big families to feed. They needed a cheap way to fill their stomachs. When explorers brought potatoes from America to Europe, the Italian farmers grew them in the dirt. Potatoes were very cheap and easy to grow.<br><br>The mothers used to boil the cheap potatoes and mash them. They mixed a lot of potato with just a tiny bit of expensive flour. They rolled them into small balls and boiled them. This cheap potato meal kept the poor farmers full of energy. Today, chefs make gnocchi by hand in fancy kitchens. People will pay a high price for these simple potato pillows!`,dictionary:{"pillows":"yastıklar","flour":"un","stomachs":"mideler","explorers":"kaşifler","mash":"ezmek","rolled":"yuvarladı"}},
+{title:"23. BBQ Ribs",src:baseUrl + "23.m4a",text:`Barbecue ribs are a famous American meal. The meat is sweet, smoky, and very soft. Today, you will find special barbecue restaurants everywhere. They charge a lot of money for a plate of ribs. But the history of barbecue ribs is a story of poor people.<br><br>In the southern United States, rich farm owners took all the best cuts of the pig. They left the tough ribs for the enslaved people and poor farmers. The ribs had very little meat and big, thick bones. If you cooked them quickly, they were too hard to eat.<br><br>To make the ribs soft, poor people used to dig a hole in the ground. They made a slow, smoky fire. They cooked the cheap ribs over the smoke for many hours. They used to brush the meat with sweet and spicy sauces to cover the bad taste. Now, rich people love this smoky flavor. This cheap meat is now a big business!`,dictionary:{"smoky":"tütsülü","enslaved":"köleleştirilmiş","thick":"kalın","dig":"kazmak","hole":"delik","brush":"fırçalamak/sürmek","flavor":"lezzet"}},
+{title:"24. Polenta",src:baseUrl + "24.m4a",text:`Polenta is a thick, yellow corn meal from Italy. Today, chefs serve it in fancy restaurants with expensive mushrooms and rich meat. But for a very long time, it was the daily food of poor Italian farmers. When farmers grew corn in their fields, they dried the yellow corn and crushed it into small pieces.<br><br>They did not have meat, fish, or cheese. They only had this yellow powder. The poor farmers used to mix the polenta with boiling water in a big iron pot. They stirred it over the fire for an hour until it became a thick yellow paste.<br><br>A poor family used to eat it every day for breakfast, lunch, and dinner. It was very boring, but it kept them alive. Rich Italians used to laugh at the farmers and called them "polenta eaters." But today, the rich people changed their minds. They added butter and fancy cheese. Now, it is a very expensive Italian dish.`,dictionary:{"crushed":"ezilmiş","powder":"toz","iron":"demir","stirred":"karıştırdı","paste":"macun","boring":"sıkıcı"}},
+{title:"25. Brisket",src:baseUrl + "25.m4a",text:`Brisket is a very large cut of beef from the chest of the cow. Because the cow uses its chest muscles a lot, the meat is very tough. In the past, butchers could not sell it to rich people. So, the tough brisket was very cheap. Poor Jewish immigrants in Eastern Europe used to buy this cheap meat for their families.<br><br>They needed to make the tough meat soft. The mothers used to cook the brisket in a pot with onions and water on a very low fire. They cooked it all day until it was soft enough to cut with a fork. Later, Jewish families moved to America and brought this recipe with them.<br><br>Also in Texas, poor farmers cooked brisket slowly over smoke to make it soft. Today, slowly cooked brisket is very famous. People will stand in long lines to buy it. Because everyone loves it, this tough and cheap meat is now very expensive.`,dictionary:{"chest":"göğüs","muscles":"kaslar","tough":"sert","immigrants":"göçmenler","recipe":"tarif","lines":"kuyruklar"}},
+{title:"26. Tantuni",src:baseUrl + "26.mp3",text:`Tantuni is a very famous food from Mersin, Turkey. But fifty years ago, it started as a cheap meal for poor market workers. After a long day of work, the Arab workers felt very hungry. They did not have much money. So, they used to go to the butchers and collect the cheapest leftover meat. People called this meat "cındırık."<br><br>The workers also collected old metal trays from the baklava makers. They hit the middle of the tray with a hammer to make a deep hole. They put the tray over a hot fire. They used cheap cotton oil to fry small pieces of boiled meat. Then, they put the hot meat inside cheap bread or leftover pastry.<br><br>They added onions, tomatoes, and parsley to make it taste good. In their Arabic dialect, "tantuni" meant a mix of everything. Soon, the rich shop owners smelled this amazing food in the evenings. They wanted to taste it too. Because everyone loved the taste, this cheap worker's meal became Mersin's famous national dish!`,dictionary:{"leftover":"artan","trays":"tepsiler","hammer":"çekiç","hole":"delik","pastry":"hamur işi","parsley":"maydanoz","dialect":"lehçe","smelled":"kokusunu aldı","national":"ulusal"}}
+];
+
+const trackContainer=document.getElementById('track-container');
+const audioPlayer=document.getElementById('audio-player');
+const playPauseBtn=document.getElementById('h-play-pause-btn');
+const mainPlayBtn=document.getElementById('h-main-play-btn');
+const nowPlayingTitle=document.getElementById('h-now-playing-title');
+const nowPlayingArtist=document.getElementById('h-now-playing-artist');
+const npArt=document.getElementById('np-art');
+const progressFill=document.getElementById('progress-fill');
+const progressBar=document.getElementById('progress-bar');
+const currentTimeEl=document.getElementById('current-time');
+const durationEl=document.getElementById('duration');
+const prevBtn=document.getElementById('prev-btn');
+const nextBtn=document.getElementById('next-btn');
+const transcriptToggleBtn=document.getElementById('h-transcript-toggle');
+const transcriptContainer=document.getElementById('h-transcript-container');
+const fullscreenBtn=document.getElementById('h-fullscreen-btn');
+const transcriptTitle=document.getElementById('h-transcript-title');
+const transcriptText=document.getElementById('h-transcript-text');
+
+let currentTrackIndex=null;
+let isPlaying=false;
+let delayTimeout=null;
+
+function formatTranscriptWithDict(text,trackDictionary){
+    if(!trackDictionary)return text;
+    return text.replace(/\b([a-zA-Z]+)\b/g,function(match){
+        let lowerMatch=match.toLowerCase();
+        if(trackDictionary[lowerMatch]){
+            return `<span class="dict-word" data-en="${match}" data-tr="${trackDictionary[lowerMatch]}">${match}</span>`;
+        }
+        return match;
+    });
+}
+
+function renderTracks(){
+    trackContainer.innerHTML='';
+    tracks.forEach((track,index)=>{
+        const div=document.createElement('div');
+        div.className='track-item';
+        if(index===currentTrackIndex&&audioPlayer.src!=='')div.classList.add('playing');
+        div.innerHTML=`<div class="track-number">${index+1}</div><div class="track-info"><div class="track-title">${track.title}</div><div class="track-artist">Listening Practice</div></div><div class="track-album">Poor Man's Food</div>`;
+        div.onclick=()=>playTrack(index);
+        trackContainer.appendChild(div);
+    });
+}
+
+function playTrack(index){
+    if(delayTimeout)clearTimeout(delayTimeout);
+    currentTrackIndex=index;
+    const track=tracks[index];
+    nowPlayingTitle.textContent=track.title;
+    nowPlayingArtist.textContent="Listening Practice";
+    if(npArt)npArt.style.display="block";
+    transcriptTitle.textContent=track.title;
+    transcriptText.innerHTML=formatTranscriptWithDict(track.text,track.dictionary);
+    const targetSrc=encodeURI(track.src);
+    if(!audioPlayer.src.includes(targetSrc)){audioPlayer.src=track.src;}
+    audioPlayer.play().catch(e=>console.log(e));
+    isPlaying=true;
+    updatePlayButtons(true);
+    renderTracks();
+}
+
+function togglePlayPause(){
+    if(!audioPlayer.src){if(tracks.length>0)playTrack(0);return;}
+    if(isPlaying){
+        audioPlayer.pause();
+        isPlaying=false;
+        updatePlayButtons(false);
+    }else{
+        audioPlayer.play();
+        isPlaying=true;
+        updatePlayButtons(true);
+    }
+}
+
+function updatePlayButtons(playing){
+    if(playing){
+        playPauseBtn.textContent='⏸';
+        playPauseBtn.classList.add('playing');
+        mainPlayBtn.textContent='⏸';
+        mainPlayBtn.style.paddingLeft='0';
+    }else{
+        playPauseBtn.textContent='▶';
+        playPauseBtn.classList.remove('playing');
+        mainPlayBtn.textContent='▶';
+        mainPlayBtn.style.paddingLeft='5px';
+    }
+}
+
+function playNext(){
+    if(currentTrackIndex!==null&&currentTrackIndex<tracks.length-1)playTrack(currentTrackIndex+1);
+}
+
+function playPrev(){
+    if(currentTrackIndex!==null&&currentTrackIndex>0)playTrack(currentTrackIndex-1);
+    else if(audioPlayer.currentTime>3)audioPlayer.currentTime=0;
+}
+
+playPauseBtn.addEventListener('click',togglePlayPause);
+mainPlayBtn.addEventListener('click',togglePlayPause);
+
+transcriptToggleBtn.addEventListener('click',()=>{
+    transcriptContainer.classList.toggle('show');
+    if(transcriptContainer.classList.contains('show')){
+        transcriptToggleBtn.textContent='📖 Hide Transcript';
+        fullscreenBtn.style.display='inline-block';
+    }else{
+        transcriptToggleBtn.textContent='📖 Show Transcript';
+        fullscreenBtn.style.display='none';
+        transcriptContainer.classList.remove('fullscreen');
+        fullscreenBtn.textContent='⛶ Full Screen';
+        document.body.style.overflow='';
+    }
+});
+
+fullscreenBtn.addEventListener('click',()=>{
+    transcriptContainer.classList.toggle('fullscreen');
+    if(transcriptContainer.classList.contains('fullscreen')){
+        fullscreenBtn.textContent='✖ Exit Full Screen';
+        document.body.style.overflow='hidden';
+    }else{
+        fullscreenBtn.textContent='⛶ Full Screen';
+        document.body.style.overflow='';
+    }
+});
+
+transcriptText.addEventListener('click',function(e){
+    const target=e.target.closest('.dict-word');
+    if(target){
+        if(target.classList.contains('active')){
+            target.classList.remove('active');
+            target.innerHTML=target.getAttribute('data-en');
+        }else{
+            target.classList.add('active');
+            const enWord=target.getAttribute('data-en');
+            const trWord=target.getAttribute('data-tr');
+            target.innerHTML=`<span class="neon-en">${enWord}</span> <span class="neon-tr">[${trWord}]</span>`;
+        }
+    }
+});
+
+nextBtn.addEventListener('click',()=>{if(delayTimeout)clearTimeout(delayTimeout);playNext();});
+prevBtn.addEventListener('click',()=>{if(delayTimeout)clearTimeout(delayTimeout);playPrev();});
+
+audioPlayer.addEventListener('ended',()=>{delayTimeout=setTimeout(()=>{playNext();},3000);});
+
+audioPlayer.addEventListener('timeupdate',()=>{
+    if(audioPlayer.duration){
+        const percent=(audioPlayer.currentTime/audioPlayer.duration)*100;
+        progressFill.style.width=`${percent}%`;
+        currentTimeEl.textContent=formatTime(audioPlayer.currentTime);
+    }
+});
+
+audioPlayer.addEventListener('loadedmetadata',()=>{durationEl.textContent=formatTime(audioPlayer.duration);});
+
+progressBar.addEventListener('click',(e)=>{
+    if(!audioPlayer.duration)return;
+    const rect=progressBar.getBoundingClientRect();
+    const pos=(e.clientX-rect.left)/rect.width;
+    audioPlayer.currentTime=pos*audioPlayer.duration;
+});
+
+function formatTime(seconds){
+    if(isNaN(seconds))return"0:00";
+    const mins=Math.floor(seconds/60);
+    const secs=Math.floor(seconds%60);
+    return`${mins}:${secs<10?'0':''}${secs}`;
+}
+
+renderTracks();
+</script>
+</body>
+</html>
